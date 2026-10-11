@@ -1,0 +1,99 @@
+# ============================================================================
+#  سامانه جامع مدیریت هنرستان شهید رجایی — محافظت از فایل‌های حساس
+#  File: .htaccess  (Apache 2.4 / cPanel)
+# ----------------------------------------------------------------------------
+#  این فایل دسترسی مستقیم مرورگر به فایل‌های پیکربندی، پایگاه داده و پوشه data
+#  را مسدود می‌کند و چند سرآیند امنیتی مهم را فعال می‌نماید.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# ۱) مسدودسازی فایل‌های حساس
+# ---------------------------------------------------------------------------
+<FilesMatch "^(db\.php|icons\.php|config\.php|honarestan_mysql\.sql|README\.md|install\.lock)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# فایل‌های پیکربندی و متنی حساس با پسوندهای رایج
+<FilesMatch "\.(sql|sqlite|sqlite3|lock|log|json|md|ini|sh|bak|old|swp)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# فایل‌های مخفی (مثل .env و .htaccess دیگر پوشه‌ها) از دید وب پنهان شوند
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ---------------------------------------------------------------------------
+# ۲) مسدودسازی اجرای PHP در پوشه data (فقط پایگاه داده و کش تاریخ)
+# ---------------------------------------------------------------------------
+RedirectMatch 404 ^/data/.*\.(php|phtml|php5|php7|phar)$
+
+# ---------------------------------------------------------------------------
+# ۳) سرآیندهای امنیتی
+# ---------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header always set X-XSS-Protection "1; mode=block"
+    # سیاست امنیتی محتوا: منابع inline (الزام معماری پروژه) + فونت و آیکون CDN اختیاری
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'self'; base-uri 'self'"
+    # حذف سرآیند افشاگر نسخه PHP
+    Header always unset X-Powered-By
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# ۴) تنظیمات پیشنهادی PHP (در صورت پشتیبانی هاست)
+# ---------------------------------------------------------------------------
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag log_errors on
+    php_value upload_max_filesize 8M
+    php_value post_max_size 10M
+    php_value max_execution_time 120
+    php_value session.cookie_httponly 1
+    php_value session.use_strict_mode 1
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# ۵) فشرده‌سازی و کش استاتیک‌ها (اختیاری)
+# ---------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json image/svg+xml
+</IfModule>
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# ۶) جلوگیری از فهرست شدن پوشه‌ها
+# ---------------------------------------------------------------------------
+Options -Indexes
+
+# ---------------------------------------------------------------------------
+# ۷) صفحه خطای فارسی (اختیاری — در صورت وجود فایل error.php)
+# ---------------------------------------------------------------------------
+# ErrorDocument 403 /honarestan/index.php?err=forbidden
+# ErrorDocument 404 /honarestan/index.php?err=notfound
